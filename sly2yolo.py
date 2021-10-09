@@ -240,11 +240,10 @@ def move_output(imgs_list: list, destination: Path, file: str, darknet_export_ba
 
     with open(darknet_export_base / file, 'w') as f:
         for img in imgs_list:
-            f.write(str(destination / img.stem) + "\n")
-
             try:
                 shutil.move(str(darknet_export_base / "images" / img.stem), str(destination))
                 shutil.move(str(darknet_export_base / "labels" / Path(img.stem + ".txt")), str(destination))
+                f.write(str(destination / img.stem) + "\n")
             except FileNotFoundError:
                 pass
 
