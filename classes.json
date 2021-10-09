@@ -1,0 +1,100 @@
+{
+    "specs": {
+    	    "train": 0.95,
+    	    "test": 0.05
+    },
+    "classes": [
+        {
+            "title": "blue_cone",
+            "color": "#2A00FF",
+            "id": 2744363,
+            "active": 1
+        },
+        {
+            "title": "seg_yellow_cone",
+            "color": "#FFFF00",
+            "id": 2744362,
+            "active": 0
+        },
+        {
+            "title": "seg_unknown_cone",
+            "color": "#3BDB0F",
+            "id": 2744361,
+            "active": 0
+        },
+        {
+            "title": "seg_blue_cone",
+            "color": "#2A00FF",
+            "id": 2744360,
+            "active": 0
+        },
+        {
+            "title": "seg_large_orange_cone",
+            "color": "#FF002A",
+            "id": 2744369,
+            "active": 0
+        },
+        {
+            "title": "yellow_cone",
+            "color": "#FFFF00",
+            "id": 2744368,
+            "active": 1
+        },
+        {
+            "title": "seg_orange_cone",
+            "color": "#FF8000",
+            "id": 2744367,
+            "active": 0
+        },
+        {
+            "title": "unknown_cone",
+            "color": "#3BDB0F",
+            "id": 2744366,
+            "active": 1
+        },
+        {
+            "title": "large_orange_cone",
+            "color": "#FF002A",
+            "id": 2744365,
+            "active": 0
+        },
+        {
+            "title": "orange_cone",
+            "color": "#FF8000",
+            "id": 2744364,
+            "active": 1
+        }
+    ],
+    "tags": [
+        {
+            "name": "knocked_over",
+            "color": "#8421ED",
+            "id": 28921801,
+            "active": 0
+        },
+        {
+            "name": "test",
+            "color": "#0F258A",
+            "id": 28921798,
+            "active": 0
+        },
+        {
+            "name": "sticker_band_removed",
+            "color": "#7ED321",
+            "id": 28921799,
+            "active": 0
+        },
+        {
+            "name": "truncated",
+            "color": "#AC5FC4",
+            "id": 28921800,
+            "active": 0
+        },
+        {
+            "name": "train",
+            "color": "#0F8A60",
+            "id": 28921802,
+            "active": 0
+        }
+    ]
+}
