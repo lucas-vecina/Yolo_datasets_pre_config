@@ -3,40 +3,16 @@ import json
 from collections import defaultdict
 import os
 import shutil
-#import cv2 as cv
 from multiprocessing import Pool
 from functools import partial
 import random
 import tqdm
 import copy
 
-FSOCO_BORDER_THICKNESS = 140
-WATERMARK = False
-tags_counter = {}
-
-def clean_export_dir(darknet_export_images_dir: Path, darknet_export_labels_dir: Path, darknet_export_base: Path):
-    shutil.rmtree(darknet_export_images_dir, ignore_errors=True)
-    shutil.rmtree(darknet_export_labels_dir, ignore_errors=True)
+def clean_export_dir(darknet_export_images_dir: Path, darknet_export_labels_dir: Path, output_export_base: Path):
+    shutil.rmtree(output_export_base, ignore_errors=True)
     darknet_export_images_dir.mkdir(parents=True)
     darknet_export_labels_dir.mkdir(parents=True)
-
-    try:
-        os.remove(darknet_export_base / "train.txt")
-        os.remove(darknet_export_base / "test.txt")
-        os.remove(darknet_export_base / "excluded_obj.txt")
-    except OSError:
-        pass
-
-def export_image(
-    darknet_export_images_dir: Path,
-    src_file: Path,
-    new_file_name: str,
-    remove_watermark: bool,
-):
-    # if remove_watermark:
-    #     rescale_copy_image(darknet_export_images_dir, src_file, new_file_name)
-    # else:
-    copy_image(darknet_export_images_dir, src_file, new_file_name)
 
 def copy_image(darknet_export_images_dir: Path, src_file: Path, new_file_name: str):
     old_file_name = src_file.name
@@ -46,40 +22,17 @@ def copy_image(darknet_export_images_dir: Path, src_file: Path, new_file_name: s
     new_dst_file_name = darknet_export_images_dir / new_file_name
     os.rename(dst_file, new_dst_file_name)
 
-# def rescale_copy_image(
-#     darknet_export_images_dir: Path, src_file: Path, new_file_name: str
-# ):
-#     image = cv.imread(str(src_file))
-#     cropped_image = image[
-#         FSOCO_BORDER_THICKNESS:-FSOCO_BORDER_THICKNESS,
-#         FSOCO_BORDER_THICKNESS:-FSOCO_BORDER_THICKNESS,
-#         :,
-#     ]
-
-#     new_dst_file_name = darknet_export_images_dir / new_file_name
-#     cv.imwrite(str(new_dst_file_name), cropped_image)
-
 def convert_object_entry(
     obj: dict,
     image_width: float,
     image_height: float,
-    class_id_mapping: dict,
-    remove_watermark: bool
+    class_id_mapping: dict
 ):
     class_title = obj["classTitle"]
     class_id = class_id_mapping[class_title]
 
     left, top = obj["points"]["exterior"][0]
     right, bottom = obj["points"]["exterior"][1]
-
-    if remove_watermark:
-        left -= FSOCO_BORDER_THICKNESS
-        top -= FSOCO_BORDER_THICKNESS
-        right -= FSOCO_BORDER_THICKNESS
-        bottom -= FSOCO_BORDER_THICKNESS
-
-        image_width -= 2 * FSOCO_BORDER_THICKNESS
-        image_height -= 2 * FSOCO_BORDER_THICKNESS
 
     mid_x = (left + right) / 2
     mid_y = (top + bottom) / 2
@@ -108,29 +61,26 @@ def convert_object_entry(
 
 
 def write_meta_data(
-    darknet_export_base: Path,
+    output_export_base: Path,
     class_id_mapping: dict,
     num_labeled_images: int,
     class_counter: dict,
 ):
     # write class id mapping
-    
-    with open(darknet_export_base / "classes.txt", "w") as class_info_file:
+    with open(output_export_base / "classes.txt", "w") as class_info_file:
 
         for class_name, _ in sorted(class_id_mapping.items(), key=lambda kv: kv[1]):
             class_info_file.write("{}\n".format(class_name))
 
     # write stats
-
     print("Number of exported Images: {} ".format(num_labeled_images))
-    print("\nTags: {}".format(tags_counter))
 
     for class_name, count in sorted(
         class_counter.items(), key=lambda kv: kv[1], reverse=True
     ):
         print(f"{class_name} -> {count}")
 
-    with open(darknet_export_base / "stats.txt", "w") as class_stat_file:
+    with open(output_export_base / "stats.txt", "w") as class_stat_file:
 
         class_stat_file.write("Number of images: {}\n\n".format(num_labeled_images))
         class_stat_file.write("Objects per class:\n")
@@ -152,11 +102,8 @@ def convert_label(
     darknet_export_images_dir: Path,
     darknet_export_labels_dir: Path,
     class_id_mapping: dict,
-    remove_watermark: bool,
     label: Path
 ):
-    global tags_counter
-    tags_c = copy.deepcopy(tags_counter)
     class_counter = defaultdict(int)
     name = label.stem
     image = Path(str(label).replace("/ann/", "/img/").replace(".json", ""))
@@ -169,19 +116,13 @@ def convert_label(
             image_width = data["size"]["width"]
             image_height = data["size"]["height"]
 
-            export_image(darknet_export_images_dir, image, name, remove_watermark)
+            copy_image(darknet_export_images_dir, image, name)
             label_file_name = darknet_export_labels_dir / f"{Path(name).stem}.txt"
             exc_obj_name = darknet_export_images_dir.parent / "excluded_obj.txt"
 
             with open(label_file_name, "w") as darknet_label:
 
                 for obj in data["objects"]:
-                    if(len(obj["tags"]) > 0):
-                        for tag in obj["tags"]:
-                            tags_c[tag["name"]] += 1
-                    
-                    tags_counter = tags_c
-
                     if(obj["classTitle"]) in class_id_mapping:
                         try:
                             (
@@ -195,9 +136,8 @@ def convert_label(
                                 obj,
                                 image_height=image_height,
                                 image_width=image_width,
-                                class_id_mapping=class_id_mapping,
-                                remove_watermark=remove_watermark
-                            )
+                                class_id_mapping=class_id_mapping
+                                )
 
                             class_counter[class_title] += 1
 
@@ -224,16 +164,17 @@ def get_paths():
     with open("paths.json", 'r') as file:
         data = json.load(file)
         sly = data["DATASET_PATH"]
-        out = data["OUTPUT_PATH"]
         dkn = data["DARKNET_PATH"]
         file.close()
+
+    out = Path.cwd() / "output"
 
     return Path(sly), Path(out), Path(dkn)
 
 def get_classes():
     class_id_mapping = {}
-    tags_count = {}
     i = 0
+
     with open("classes.json", 'r') as classes:
         active_classes = json.load(classes)
 
@@ -241,58 +182,57 @@ def get_classes():
             if(d["active"] == 1):
                 class_id_mapping[d["title"]] = i
                 i += 1
-
-        for d in active_classes["tags"]:
-            tags_count[d["name"]] = 0
-
-        classes.close()
     
-    return class_id_mapping, tags_count
+    return class_id_mapping
 
-def move_output(imgs_list: list, destination: Path, file: str, darknet_export_base: Path):
+def move_output(imgs_list: list, destination: Path, file: str, output_export_base: Path):
     shutil.rmtree(destination, ignore_errors=True)
     destination.mkdir(parents=True)
 
-    with open(darknet_export_base / file, 'w') as f:
+    with open(output_export_base / file, 'w') as f:
         for img in imgs_list:
             try:
-                shutil.move(str(darknet_export_base / "images" / img.stem), str(destination))
-                shutil.move(str(darknet_export_base / "labels" / Path(Path(img.stem).stem + ".txt")), str(destination))
+                shutil.move(str(output_export_base / "images" / img.stem), str(destination))
+                shutil.move(str(output_export_base / "labels" / Path(Path(img.stem).stem + ".txt")), str(destination))
                 f.write(str(destination / img.stem) + "\n")
             except FileNotFoundError:
                 pass
 
-def generate_train_test(darknet_export_base: Path, labels: list, darknet_ref: Path):
+def generate_train_test(output_export_base: Path, labels: list, darknet_ref: Path):
     with open("classes.json", 'r') as jsonfile:
         data = json.load(jsonfile)
         train_p = data["specs"]["train"]
+        val_p = data["specs"]["validation"]
         jsonfile.close()
 
-    num_train = int(len(labels) * train_p)
-    train_imgs = random.sample(labels, num_train)
-    test_imgs = list(set(labels) - set(train_imgs))
+    num_imgs = len(labels)
+    train_imgs = random.sample(labels, int(num_imgs * train_p))
 
-    move_output(train_imgs, darknet_ref / "data/obj", "train.txt", darknet_export_base)
-    move_output(test_imgs, darknet_ref / "data/test", "test.txt", darknet_export_base)
+    labels_gp1 = list(set(labels) - set(train_imgs))
+    val_imgs = random.sample(labels_gp1, int(num_imgs * val_p))
+
+    test_imgs = list(set(labels_gp1) - set(val_imgs))
+
+    move_output(train_imgs, darknet_ref / "data/obj", "train.txt", output_export_base)
+    move_output(val_imgs, darknet_ref / "data/val", "val.txt", output_export_base)
+    move_output(test_imgs, darknet_ref / "data/test", "test.txt", output_export_base)
+
 
 def main():
-    global tags_counter
-    remove_watermark = WATERMARK
-    sly_base, darknet_export_base, darknet_ref = get_paths()
-    class_id_mapping, tags_counter = get_classes()
+    sly_base, output_export_base, darknet_ref = get_paths()
+    class_id_mapping = get_classes()
 
-    darknet_export_images_dir = darknet_export_base / "images"
-    darknet_export_labels_dir = darknet_export_base / "labels"
+    darknet_export_images_dir = output_export_base / "images"
+    darknet_export_labels_dir = output_export_base / "labels"
     labels = list(sly_base.glob("*/ann/*.json"))
 
-    clean_export_dir(darknet_export_images_dir, darknet_export_labels_dir, darknet_export_base)
+    clean_export_dir(darknet_export_images_dir, darknet_export_labels_dir, output_export_base)
 
     convert_func = partial(
         convert_label,
         darknet_export_images_dir,
         darknet_export_labels_dir,
         class_id_mapping,
-        remove_watermark
     )
 
     global_class_counter = defaultdict(int)
@@ -302,8 +242,8 @@ def main():
             for class_name, count in class_counter.items():
                 global_class_counter[class_name] += count
 
-    write_meta_data(darknet_export_base, class_id_mapping, len(labels), global_class_counter)
-    generate_train_test(darknet_export_base, labels, darknet_ref)
+    write_meta_data(output_export_base, class_id_mapping, len(labels), global_class_counter)
+    generate_train_test(output_export_base, labels, darknet_ref)
 
 if __name__ == "__main__":
     main()
