@@ -185,16 +185,16 @@ def get_classes():
     
     return class_id_mapping
 
-def move_output(imgs_list: list, destination: Path, file: str, output_export_base: Path):
-    shutil.rmtree(destination, ignore_errors=True)
+def move_output(imgs_list: list, darknet_base: Path, file: Path, output_export_base: Path):
+    destination = output_export_base / file.stem
     destination.mkdir(parents=True)
 
     with open(output_export_base / file, 'w') as f:
         for img in imgs_list:
             try:
-                shutil.move(str(output_export_base / "images" / img.stem), str(destination))
-                shutil.move(str(output_export_base / "labels" / Path(Path(img.stem).stem + ".txt")), str(destination))
-                f.write(str(destination / img.stem) + "\n")
+                shutil.move(str(output_export_base / "images" / img.stem), destination)
+                shutil.move(str(output_export_base / "labels" / Path(Path(img.stem).stem + ".txt")), destination)
+                f.write(str(darknet_base / "data" / file.stem / img.stem) + "\n")
             except FileNotFoundError:
                 pass
 
@@ -213,10 +213,12 @@ def generate_train_test(output_export_base: Path, labels: list, darknet_ref: Pat
 
     test_imgs = list(set(labels_gp1) - set(val_imgs))
 
-    move_output(train_imgs, darknet_ref / "data/obj", "train.txt", output_export_base)
-    move_output(val_imgs, darknet_ref / "data/val", "val.txt", output_export_base)
-    move_output(test_imgs, darknet_ref / "data/test", "test.txt", output_export_base)
+    move_output(train_imgs, darknet_ref, Path("train.txt"), output_export_base)
+    move_output(val_imgs, darknet_ref, Path("val.txt"), output_export_base)
+    move_output(test_imgs, darknet_ref, Path("test.txt"), output_export_base)
 
+    shutil.rmtree(output_export_base / "images", ignore_errors=True)
+    shutil.rmtree(output_export_base / "labels", ignore_errors=True)
 
 def main():
     sly_base, output_export_base, darknet_ref = get_paths()

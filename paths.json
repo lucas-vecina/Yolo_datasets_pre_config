@@ -1,5 +1,4 @@
 {
 	"DATASET_PATH": "/media/lucas/Dados/lucas_dados/fsoco_dataset",
-	"OUTPUT_PATH": "/media/lucas/Dados/lucas_dados/fsoco_dataset/output",
 	"DARKNET_PATH": "/media/lucas/Dados/lucas_dados/fsoco_dataset/darknet"
 }
